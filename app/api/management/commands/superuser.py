@@ -5,7 +5,7 @@ from getpass import getpass
 
 
 class Command(BaseCommand):
-    help = 'Create a superuser with additional data'
+    help = 'Create a superuser with additional userprofile'
 
     def handle(self, *args, **options):
         email = input('Enter email: ')

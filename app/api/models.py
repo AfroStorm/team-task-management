@@ -23,10 +23,10 @@ class CustomUserManager(BaseUserManager):
         normalized_email = self.normalize_email(email)
         user = self.model(email=normalized_email, **user_data)
         user.set_password(password)
-        user.save(self._db)
+        user.save(using=self._db)
 
         profile = UserProfile(owner=user, **profile_data)
-        profile.save(self._db)
+        profile.save(using=self._db)
 
         return user
 
@@ -38,7 +38,7 @@ class CustomUserManager(BaseUserManager):
         user = self.create(user_data, profile_data)
         user.is_staff = True
         user.is_superuser = True
-        user.save(self._db)
+        user.save(using=self._db)
 
         return user
 
