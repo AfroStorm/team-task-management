@@ -210,8 +210,14 @@ class UserProfile(models.Model):
     position = models.ForeignKey(
         Position,
         on_delete=models.CASCADE,
-        related_name='employee'
+        related_name='employee',
+        null=True,
+        blank=True
     )
+
+    def __str__(self):
+
+        return f'Profile Owner: {self.owner.email}'
 
 
 class Task(models.Model):

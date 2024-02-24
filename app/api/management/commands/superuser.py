@@ -1,24 +1,30 @@
 # Custom management command
 from django.core.management.base import BaseCommand
-from django.contrib.auth.management.commands import createsuperuser
 from django.contrib.auth import get_user_model
+from getpass import getpass
 
 
-class Command(createsuperuser):
+class Command(BaseCommand):
     help = 'Create a superuser with additional data'
 
     def handle(self, *args, **options):
         email = input('Enter email: ')
-        password = input('Enter password: ')
+        while True:
+            password = getpass('Enter password: ')
+            password_confirm = getpass('Confirm password: ')
+
+            if password == password_confirm:
+                break
+            else:
+                self.stdout.write(self.style.ERROR(
+                    'Passwords do not match. Please try again.'))
         first_name = input('Enter first name: ')
         last_name = input('Enter last name: ')
-        position = input('Enter position: ')
 
         # Additional data for UserProfile
         profile_data = {
             'first_name': first_name,
             'last_name': last_name,
-            'position': position,
         }
 
         user_data = {
