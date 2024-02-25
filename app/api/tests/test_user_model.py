@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 
-class TestCustomUserMosel(APITestCase):
+class TestCustomUserModel(APITestCase):
     """
     Tests related to the CustomUser Model.
     """
@@ -40,6 +40,10 @@ class TestCustomUserMosel(APITestCase):
         self.assertNotEqual(user.password, password)
         # Correct password
         self.assertTrue(user.check_password(password))
+        # Correct str representation
+        expected_string = f'Email: {email}'
+        actual_string = str(user)
+        self.assertEqual(actual_string, expected_string)
 
         # PROFILE TESTS
         # Profile got created
@@ -82,6 +86,10 @@ class TestCustomUserMosel(APITestCase):
         # Superuser/staff is true
         self.assertTrue(superuser.is_staff)
         self.assertTrue(superuser.is_superuser)
+        # Correct str representation
+        expected_string = f'Email: {email}'
+        actual_string = str(superuser)
+        self.assertEqual(actual_string, expected_string)
 
         # PROFILE TESTS
         # Profile got created
