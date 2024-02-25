@@ -14,7 +14,7 @@ class TestPositionModel(APITestCase):
         Necessary models for the creation of a Position instance.
         """
 
-        # Foreign key Category Instance
+        # Foreign key Category Instance for position instance
         name = 'Human Resource'
         description = '''A domain specialized in the area of employee
                          recruitment and relationship'''

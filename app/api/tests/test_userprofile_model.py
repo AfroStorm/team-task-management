@@ -16,7 +16,7 @@ class TestUserProfileModel(APITestCase):
         """
         Necessary models for the creation of a UserProfile instance.
         """
-        # Foreign key Category Instance
+        # Foreign key Category Instance for the position instance
         name = 'Human Resource'
         description = '''A domain specialized in the area of employee
                          recruitment and relationship'''
@@ -26,7 +26,7 @@ class TestUserProfileModel(APITestCase):
             description=description
         )
 
-        # Foreign key Position Instance
+        # Foreign key Position Instance for the task instance
         title = 'Human Resource Specialist'
         description = '''A Position specialized in the area of employee
                          recruitment and relationship'''

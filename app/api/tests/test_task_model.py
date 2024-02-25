@@ -17,7 +17,7 @@ class TestTaskModel(APITestCase):
         """
         Necessary models for the creation of a Task instance.
         """
-        # Foreign key Category Instance
+        # Foreign key Category Instance for the position/task instance
         name = 'Human Resource'
         description = '''A domain specialized in the area of employee
                          recruitment and relationship'''
@@ -27,7 +27,7 @@ class TestTaskModel(APITestCase):
             description=description
         )
 
-        # Foreign key Position Instance
+        # Foreign key Position Instance for the userprofile instance
         title = 'Human Resource Specialist'
         description = '''A Position specialized in the area of employee
                          recruitment and relationship'''
@@ -41,13 +41,13 @@ class TestTaskModel(APITestCase):
             category=category
         )
 
-        # Foreign key Priority instance
+        # Foreign key Priority instance for the task instance
         caption = 'High Priority'
 
         self.priority_instance = models.Priority.objects.create(
             caption=caption)
 
-        # Foreign key Status instance
+        # Foreign key Status instance for the task instance
         caption = 'In Progress'
         description = 'Indicates that a task is stillin progress.'
 
@@ -60,7 +60,7 @@ class TestTaskModel(APITestCase):
         # UserProfile gets created for each CustomUser through
         # CustomUserManager
 
-        # First User instance
+        # User instance as owner for task instance
         email = 'peterpahn@gmail.com'
         password = 'blabla123.'
         first_name = 'Peter'
@@ -79,7 +79,7 @@ class TestTaskModel(APITestCase):
         user = User.objects.create(user_data, profile_data)
         self.userprofile1 = user.profile
 
-        # Second User instance
+        # User instance as team_member for task.team_members
         email = 'tinaturner@gmail.com'
         password = 'blabla123.'
         first_name = 'Tina'
