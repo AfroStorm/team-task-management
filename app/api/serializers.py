@@ -83,6 +83,7 @@ class CustomUserSerializer(serializers.Serializer):
                     ErrorDetail("Passwords do not match!", code='invalid')
                 ]
             })
+        attrs.pop('password_confirmation', None)
 
         return super().validate(attrs)
 
@@ -116,17 +117,20 @@ class CustomUserSerializer(serializers.Serializer):
         Custom create method to prepare validated_data for being
         saved in the right format.
         """
+
+        profile = instance.profile
+
         email = validated_data.get('email', instance.email)
         password = validated_data.get('password', instance.password)
-        first_name = validated_data.get('first_name', instance.first_name)
-        last_name = validated_data.get('last_name', instance.last_name)
-        position = validated_data.get('position', instance.position)
+        first_name = validated_data.get('first_name', profile.first_name)
+        last_name = validated_data.get('last_name', profile.last_name)
+        position = validated_data.get('position', profile.position)
 
         instance.email = email
         instance.password = make_password(password)
-        instance.first_name = first_name
-        instance.last_name = last_name
-        instance.position = position
+        profile.first_name = first_name
+        profile.last_name = last_name
+        profile.position = position
 
         instance.save()
 
