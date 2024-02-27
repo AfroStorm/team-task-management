@@ -4,6 +4,7 @@ from api import models
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from rest_framework.exceptions import ErrorDetail
+from collections import OrderedDict
 
 
 User = get_user_model()
@@ -69,13 +70,42 @@ class CustomUserSerializer(serializers.Serializer):
         slug_field='title'
     )
 
+    def to_internal_value(self, data):
+        """
+        Restructures the content of the validated_data into 2 seperate
+        dictionaries within it. This happens to prepare the data to be
+        passed into the CustomUser create method, which expects 2
+        dictionaries (user_data, profile_data).
+        """
+
+        user_fields = ['email', 'password', 'password_confirmation']
+        profile_fields = ['first_name', 'last_name', 'position']
+        user_data = {}
+        profile_data = {}
+        restructured_data = OrderedDict()
+        for field in data:
+
+            if field in user_fields:
+                user_data[field] = data.get(field)
+            elif field in profile_fields:
+                profile_data[field] = data.get(field)
+
+        restructured_data['user_data'] = user_data
+        restructured_data['profile_data'] = profile_data
+
+        return restructured_data
+
     def validate(self, attrs):
         """
-        Checks if the password and password_confirmation value are
+        Checks if the password and password_confirmation values are
         identical.
         """
-        password = attrs.get('password')
-        password_confirmation = attrs.get('password_confirmation')
+
+        user_data = attrs.get('user_data')
+
+        password = user_data.get('password')
+        password_confirmation = user_data.get('password_confirmation')
+
         if password and password_confirmation and\
                 password != password_confirmation:
             raise serializers.ValidationError({
@@ -83,31 +113,22 @@ class CustomUserSerializer(serializers.Serializer):
                     ErrorDetail("Passwords do not match!", code='invalid')
                 ]
             })
-        attrs.pop('password_confirmation', None)
+        # Removing the password_confirmation
+        user_data.pop('password_confirmation', None)
 
         return super().validate(attrs)
 
     def create(self, validated_data):
         """
-        Restructures the content of the validated_data into 2 seperate
-        dictionaries within it. This happens to prepare the data to be
-        passed into the CustomUser create method, which expects 2
-        dictionaries (user_data, profile_data).
+        Passing in the restructured validated_data to the
+        CostumUserCreate method.
         """
-        email = validated_data.get('email')
-        password = validated_data.get('password')
-        hashed_password = make_password(password)
-        first_name = validated_data.get('first_name')
-        last_name = validated_data.get('last_name')
-        position = validated_data.get('position')
+        user_data = validated_data.get('user_data')
+        profile_data = validated_data.get('profile_data')
 
         new_user = User.objects.create(
-            user_data={'email': email, 'password': hashed_password},
-            profile_data={
-                'first_name': first_name,
-                'last_name': last_name,
-                'position': position,
-            }
+            user_data=user_data,
+            profile_data=profile_data
         )
 
         return new_user
@@ -118,13 +139,16 @@ class CustomUserSerializer(serializers.Serializer):
         saved in the right format.
         """
 
-        profile = instance.profile
+        user_data = validated_data.get('user_data')
+        profile_data = validated_data.get('profile_data')
 
-        email = validated_data.get('email', instance.email)
-        password = validated_data.get('password', instance.password)
-        first_name = validated_data.get('first_name', profile.first_name)
-        last_name = validated_data.get('last_name', profile.last_name)
-        position = validated_data.get('position', profile.position)
+        email = user_data.get('email', instance.email)
+        password = user_data.get('password', instance.password)
+
+        profile = instance.profile
+        first_name = profile_data.get('first_name', profile.first_name)
+        last_name = profile_data.get('last_name', profile.last_name)
+        position = profile_data.get('position', profile.position)
 
         instance.email = email
         instance.password = make_password(password)
@@ -143,10 +167,11 @@ class CustomUserSerializer(serializers.Serializer):
         """
 
         # Creates basic user representation data
+        desired_fields = ['id', 'email', 'last_login', 'is_active', 'profile']
         representation = {}
         for field, value in instance.__dict__.items():
             # Removes undesired fields retrieved from the instance
-            if not field.startswith('_') and field != 'password':
+            if field in desired_fields:
                 representation[field] = value
 
         # Serializes nested instances.
