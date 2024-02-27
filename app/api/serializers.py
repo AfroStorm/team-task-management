@@ -170,7 +170,6 @@ class CustomUserSerializer(serializers.Serializer):
         desired_fields = ['id', 'email', 'last_login', 'is_active', 'profile']
         representation = {}
         for field, value in instance.__dict__.items():
-            # Removes undesired fields retrieved from the instance
             if field in desired_fields:
                 representation[field] = value
 
