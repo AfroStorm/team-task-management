@@ -25,11 +25,13 @@ class TestCustomUserModel(APITestCase):
         self.position1 = models.Position.objects.create(
             title='Human Resource Specialist',
             description='This is a position titled Human Resource Specialist.',
+            is_task_manager=True,
             category=self.category
         )
         self.position2 = models.Position.objects.create(
             title='Human Resource Assistant',
             description='This is a position titled Human Resource Assistant.',
+            is_task_manager=False,
             category=self.category
         )
         # User instances
