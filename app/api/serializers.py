@@ -72,10 +72,10 @@ class CustomUserSerializer(serializers.Serializer):
 
     def to_internal_value(self, data):
         """
-        Restructures the content of the validated_data into 2 seperate
-        dictionaries within it. This happens to prepare the data to be
-        passed into the CustomUser create method, which expects 2
-        dictionaries (user_data, profile_data).
+        Restructures the content of the data into 2 nested
+        dictionaries (user_data, profile_data) of a new dictionary
+        (restructured_data) to prepare the data to be passed into 
+        the CustomUser create method, which expects this format.
         """
 
         user_fields = ['email', 'password', 'password_confirmation']
@@ -98,7 +98,7 @@ class CustomUserSerializer(serializers.Serializer):
     def validate(self, attrs):
         """
         Checks if the password and password_confirmation values are
-        identical.
+        identical and removes the password_confirmation at the end.
         """
 
         user_data = attrs.get('user_data')
@@ -114,7 +114,7 @@ class CustomUserSerializer(serializers.Serializer):
                 ]
             })
         # Removing the password_confirmation
-        user_data.pop('password_confirmation', None)
+        attrs['user_data'].pop('password_confirmation', None)
 
         return super().validate(attrs)
 
@@ -135,8 +135,9 @@ class CustomUserSerializer(serializers.Serializer):
 
     def update(self, instance, validated_data):
         """
-        Custom create method to prepare validated_data for being
-        saved in the right format.
+        Custom update method accessing the individual fields within
+        the restructured data to update the respective instance 
+        attributes.
         """
 
         user_data = validated_data.get('user_data')
@@ -162,8 +163,7 @@ class CustomUserSerializer(serializers.Serializer):
 
     def to_representation(self, instance):
         """
-        Restructures the representation data to a dictionary of nested
-        instances.
+        Presents the data as a dictionary of nested instances.
         """
 
         # Creates basic user representation data
