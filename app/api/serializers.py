@@ -3,6 +3,7 @@ from rest_framework.validators import ValidationError
 from api import models
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
+from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import ErrorDetail
 from collections import OrderedDict
 
@@ -78,6 +79,7 @@ class CustomUserSerializer(serializers.Serializer):
         the CustomUser create method, which expects this format.
         """
 
+        data = super().to_internal_value(data)
         user_fields = ['email', 'password', 'password_confirmation']
         profile_fields = ['first_name', 'last_name', 'position']
         user_data = {}
@@ -87,6 +89,7 @@ class CustomUserSerializer(serializers.Serializer):
 
             if field in user_fields:
                 user_data[field] = data.get(field)
+
             elif field in profile_fields:
                 profile_data[field] = data.get(field)
 

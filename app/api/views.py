@@ -27,4 +27,4 @@ class UserCreateView(CreateAPIView):
 
     def create(self, request, *args, **kwargs):
 
-        response = super().create(request, *args, **kwargs)
+        return super().create(request, *args, **kwargs)
