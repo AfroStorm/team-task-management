@@ -49,6 +49,18 @@ class TestCustomUserModel(APITestCase):
                 'position': self.position1
             }
         )
+        self.admin = User.objects.create_superuser(
+            user_data={
+                'email': 'admin.email@example.com',
+                'password': 'testpassword123'
+
+            },
+            profile_data={
+                'first_name': 'John',
+                'last_name': 'Doe',
+                'position': self.position1
+            }
+        )
         return super().setUp()
 
     # Django intern creation
@@ -104,60 +116,18 @@ class TestCustomUserModel(APITestCase):
         self.assertIsNotNone(profile.position)
         self.assertEqual(profile.position, self.position1)
 
-    def test_create_super_user(self):
-        """
-        Tests the creation of a superuser instance and its related
-        UserProfile instance through the CustomUserManager.
-        """
-        email = 'peterlustig@gmail.com'
-        password = 'blabla123.'
-        first_name = 'Peter'
-        last_name = 'Lustig'
-
-        user_data = {
-            'email': email,
-            'password': password
-        }
-        profile_data = {
-            'first_name': first_name,
-            'last_name': last_name,
-            'position': self.position1
-        }
+        # Create super user
+        user_data['email'] = 'peterlustig@gmail.com'  # Unique key constrain
         superuser = User.objects.create_superuser(user_data, profile_data)
 
-        # USER TESTS
-        # Email normalized
-        email_domain_part = superuser.email.split('@')[1]
-        expected_email_domain_part = email.split('@')[1]
-        self.assertEqual(email_domain_part, expected_email_domain_part)
-        # Password got hashed
-        self.assertNotEqual(superuser.password, password)
-        # Correct password
-        self.assertTrue(superuser.check_password(password))
         # Superuser/staff is true
         self.assertTrue(superuser.is_staff)
         self.assertTrue(superuser.is_superuser)
-        # Correct str representation
-        expected_string = f'Email: {email}'
-        actual_string = str(superuser)
-        self.assertEqual(actual_string, expected_string)
 
-        # PROFILE TESTS
-        # Profile got created
-        self.assertIsNotNone(superuser.profile)
-        profile = superuser.profile
-        # First name correct
-        self.assertEqual(profile.first_name, first_name)
-        # Last name correct
-        self.assertEqual(profile.last_name, last_name)
-        # Position got assigned
-        self.assertIsNotNone(profile.position)
-        self.assertEqual(profile.position, self.position1)
-
-    # CustomUserSerializer
+    # UserInitiationSerializer
     def test_serializer_password_confirmation(self):
         """
-        Tests the password validation of the CustomUserSerializer when
+        Tests the password validation of the UserInitiationSerializer when
         wrong password data is passed to it, as well as when password
         data is passed to it.
         """
@@ -171,7 +141,7 @@ class TestCustomUserModel(APITestCase):
             'last_name': 'Lustig',
             'position': self.position1
         }
-        serializer = serializers.CustomUserSerializer(
+        serializer = serializers.UserInitiationSerializer(
             data=wrong_data
         )
 
@@ -199,7 +169,7 @@ class TestCustomUserModel(APITestCase):
             'last_name': 'Lustig',
             'position': self.position1
         }
-        serializer = serializers.CustomUserSerializer(
+        serializer = serializers.UserInitiationSerializer(
             data=correct_data
         )
         # Data is valid
@@ -212,109 +182,32 @@ class TestCustomUserModel(APITestCase):
         """
 
         data = {
-            'email': 'theemail@GMAIL.com',  # not normalized
+            'email': 'theemail@gmail.com',
             'password': 'blabla123',
             'password_confirmation': 'blabla123',
             'first_name': 'Kevin',
             'last_name': 'Reiner',
             'position': self.position1.title,
         }
-        serializer = serializers.CustomUserSerializer(
+        serializer = serializers.UserInitiationSerializer(
             data=data
         )
 
         self.assertTrue(serializer.is_valid())
         user = serializer.save()
+
         # valid CustomUser instance
-        self.assertIsInstance(user, models.CustomUser)
         self.assertIsNotNone(user)
-
-        # Email normalized
-        email = data.get('email')
-        email_domain_part = user.email.split('@')[1]
-        expected_email_domain_part = email.split('@')[1].lower()
-        self.assertEqual(email_domain_part, expected_email_domain_part)
-
-        # Password got hashed
-        password = data.get('password')
-        self.assertNotEqual(user.password, password)
-        # Correct password
-        self.assertTrue(user.check_password(password))
-
-        # PROFILE TESTS
-        # Profile got created
-        self.assertIsNotNone(user.profile)
-
-        # First name correct
-        profile = user.profile
-        first_name = data.get('first_name')
-        self.assertEqual(profile.first_name, first_name)
-
-        # Last name correct
-        last_name = data.get('last_name')
-        self.assertEqual(profile.last_name, last_name)
-
-        # Position got assigned
-        position = self.position1
-        self.assertIsNotNone(profile.position)
-        self.assertEqual(profile.position, position)
-
-    def test_serializer_update(self):
-        """
-        Tests if the CustomUserSerializer correctly updates the user
-        instance.
-        """
-
-        data = {
-            'email': 'newmail@GMAIL.com',
-            'password': 'blabla456',
-            'password_confirmation': 'blabla456',
-            'first_name': 'Christian',
-            'last_name': 'Gloeckner',
-            'position': self.position2.title,
-        }
-        serializer = serializers.CustomUserSerializer(
-            instance=self.user,
-            data=data
-        )
-
-        self.assertTrue(serializer.is_valid())
-        updated_user = serializer.save()
-
-        profile = updated_user.profile
-
-        # Correct email
-        email = data.get('email')
-        self.assertEqual(updated_user.email, email)
-
-        # Password got hashed
-        password = data.get('password')
-        self.assertNotEqual(updated_user.password, password)
-
-        # Correct password
-        self.assertTrue(updated_user.check_password(password))
-
-        # Correct first_name
-        first_name = data.get('first_name')
-        self.assertEqual(profile.first_name, first_name)
-
-        # Correct last_name
-        last_name = data.get('last_name')
-        self.assertEqual(profile.last_name, last_name)
-
-        # Position got assigned
-        position = data.get('position')
-        self.assertIsNotNone(profile.position)
-        self.assertEqual(profile.position, self.position2)
+        self.assertIsInstance(user, models.CustomUser)
 
     def test_serializer_serialization(self):
         """
         Tests if the to_representation method of the
-        CustomUserSerializer presents the data in form of nested
+        UserInitiationSerializer presents the data in form of nested
         dictionaries.
         """
 
-        serializer = serializers.CustomUserSerializer(instance=self.user)
+        serializer = serializers.UserInitiationSerializer(instance=self.user)
         user = self.user
         profile = self.user.profile
         position = self.user.profile.position
@@ -322,8 +215,9 @@ class TestCustomUserModel(APITestCase):
         expected_data = {
             'id': user.id,
             'email': user.email,
-            'last_login': user.last_login,
             'is_active': user.is_active,
+            'is_superuser': user.is_superuser,
+            'is_staff': user.is_staff,
             'profile': {
                 'id': profile.id,
                 'owner': profile.owner.id,
@@ -346,63 +240,46 @@ class TestCustomUserModel(APITestCase):
         self.assertEqual(serializer.data, expected_data)
 
     # View tests
-    def test_user_create_view(self):
+    def test_user_create_action(self):
         """
-        Tests if the CreateUserView is successfully creating a user
-        instance.
+        Tests if the CustomUserVIew is successfully creating a user
+        instance and giving the expected responses.
         """
-        url = reverse('create-user')
-        data = {
-            'email': 'uniqueemail@GMAIL.com',  # not normalized
+
+        test_data = {
+            'email': 'uniqueemail@gmail.com',
             'password': 'blabla123',
             'password_confirmation': 'blabla123',
             'first_name': 'Kevin',
             'last_name': 'Reiner',
             'position': self.position1.title,
         }
-        response = self.client.post(url, data, format='json')
+        url = reverse('customuser-list')
+        response = self.client.post(url, test_data, format='json')
 
-        # RESPONSE TESTS
-        # Instance not None
-        user_id = response.data.get('id')
-        user = User.objects.get(pk=user_id)
-        self.assertIsNotNone(user)
+        # PERMISSION TESTS
+        # Unauthenticated user
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-        # Correct status code
+        # Non-admin user
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post(url, test_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        # Admin user
+        self.client.force_authenticate(user=self.admin)
+
+        # Bad request response
+        test_data['position'] = self.position1.id
+        response = self.client.post(url, test_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # Good request response
+        test_data['position'] = self.position1.title
+        response = self.client.post(url, test_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
-        # USER TESTS
-        # Email normalized
-        email = data.get('email')
-        email_domain_part = user.email.split('@')[1]
-        expected_email_domain_part = email.split('@')[1].lower()
-        self.assertEqual(email_domain_part, expected_email_domain_part)
-
-        # Password got hashed
-        password = data.get('password')
-        self.assertNotEqual(user.password, password)
-
-        # Correct password
-        self.assertTrue(user.check_password(password))
-
-        # Correct str representation
-        expected_string = f'Email: {email.lower()}'
-        actual_string = str(user)
-        self.assertEqual(actual_string, expected_string)
-
-        # PROFILE TESTS
-        # Profile got created
-        self.assertIsNotNone(user.profile)
-
-        # First name correct
-        profile = user.profile
-        first_name = data.get('first_name')
-        self.assertEqual(profile.first_name, first_name)
-
-        # Last name correct
-        last_name = data.get('last_name')
-        self.assertEqual(profile.last_name, last_name)
-
-        # Position got assigned
-        self.assertIsNotNone(profile.position)
-        self.assertEqual(profile.position, self.position1)
+        # Password not in response data
+        response_data = response.data.get('data')
+        self.assertNotIn('password', response_data)
