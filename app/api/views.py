@@ -49,7 +49,7 @@ class CustomUserView(viewsets.GenericViewSet):
 
         return serializers.CustomUserSerializer
 
-    def create(self, request, * args, **kwargs):
+    def create(self, request):
         """
         Creates a CustomUser instance together with its UserProfile
         instance.
@@ -63,7 +63,7 @@ class CustomUserView(viewsets.GenericViewSet):
         - position (SlugRelatedField: slug_field='title')
         """
 
-        serializer = self.get_serializer(request.data)
+        serializer = self.get_serializer(data=request.data)
 
         if serializer.is_valid():
             user = serializer.save()
@@ -85,12 +85,12 @@ class CustomUserView(viewsets.GenericViewSet):
 
         )
 
-    def list(self, request, *args, **kwargs):
+    def list(self, request):
         """
         Retrieves list of multiple CustomUser instances.
         """
         queryset = self.queryset
-        serializer = self.get_serializer(
+        serializer = self.get_serializer_class(
             instance=queryset,
             many=True
         )
