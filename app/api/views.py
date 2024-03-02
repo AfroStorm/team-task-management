@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from rest_framework import viewsets, response, status, permissions, filters
 from rest_framework.authentication import TokenAuthentication
 from api import models, serializers
@@ -26,7 +26,6 @@ class CustomUserView(viewsets.GenericViewSet):
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['id', 'email']
     ordering_fields = ['id', 'email']
-    lookup_field = 'email'
 
     def get_permissions(self):
         """
@@ -34,7 +33,7 @@ class CustomUserView(viewsets.GenericViewSet):
         """
         permission_classes = []
         if self.action == 'create':
-            permission_classes = []
+            permission_classes = [permissions.IsAdminUser]
 
         return [permission() for permission in permission_classes]
 
@@ -90,9 +89,19 @@ class CustomUserView(viewsets.GenericViewSet):
         Retrieves list of multiple CustomUser instances.
         """
         queryset = self.queryset
-        serializer = self.get_serializer_class(
+        serializer = self.get_serializer(
             instance=queryset,
             many=True
         )
+
+        return response.Response(serializer.data)
+
+    def retrieve(self, request, pk):
+        """
+        Retrieves  single CustomUser instances.
+        """
+
+        instance = self.get_object()
+        serializer = self.get_serializer(instance=instance)
 
         return response.Response(serializer.data)
