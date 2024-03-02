@@ -40,166 +40,107 @@ class UserProfileSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-# class CustomUserSerializer(serializers.Serializer):
-#     """
-#     A Serializer for the CustomUser model. expects data for a
-#     CostumUser and its profile instance.
+class CustomUserSerializer(serializers.Serializer):
+    """
+    A RUD Serializer for the CustomUser model. expects data for a
+    CostumUser and its profile instance.
 
-#     fields:
-#     - email (EmailField)
-#     - password (CharField)
-#     - password_confirmation (CharField)
-#     - first_name (CharField)
-#     - last_name (CharField)
-#     - position (SlugRelatedField: slug_field='title')
-#     """
-#     # User data
-#     email = serializers.EmailField(max_length=100)
-#     password = serializers.CharField(
-#         style={'input_type': 'password'},
-#         write_only=True
-#     )
-#     password_confirmation = serializers.CharField(
-#         style={'input_type': 'password'},
-#         write_only=True
-#     )
-#     # Profile data
-#     first_name = serializers.CharField(max_length=100)
-#     last_name = serializers.CharField(max_length=100)
-#     position = serializers.SlugRelatedField(
-#         queryset=models.Position.objects.all(),
-#         slug_field='title'
-#     )
+    fields:
+    - email (EmailField)
+    - password (CharField)
+    - password_confirmation (CharField)
+    """
+    email = serializers.EmailField(max_length=100)
+    password = serializers.CharField(
+        style={'input_type': 'password'},
+        write_only=True
+    )
+    password_confirmation = serializers.CharField(
+        style={'input_type': 'password'},
+        write_only=True
+    )
 
-#     def to_internal_value(self, data):
-#         """
-#         Restructures the content of the data into 2 nested
-#         dictionaries (user_data, profile_data) of a new dictionary
-#         (restructured_data) to prepare the data to be passed into
-#         the CustomUser create method, which expects this format.
-#         """
+    def validate(self, attrs):
+        """
+        Checks if the password and password_confirmation values are
+        identical and removes the password_confirmation at the end.
+        """
 
-#         data = super().to_internal_value(data)
-#         user_fields = ['email', 'password', 'password_confirmation']
-#         profile_fields = ['first_name', 'last_name', 'position']
-#         user_data = {}
-#         profile_data = {}
-#         restructured_data = OrderedDict()
-#         for field in data:
+        password = attrs.get('password')
+        password_confirmation = attrs.get('password_confirmation')
 
-#             if field in user_fields:
-#                 user_data[field] = data.get(field)
+        if password and password_confirmation and\
+                password != password_confirmation:
+            raise serializers.ValidationError({
+                'non_field_errors': [
+                    ErrorDetail("Passwords do not match!", code='invalid')
+                ]
+            })
+        # Removing the password_confirmation
+        attrs.pop('password_confirmation', None)
 
-#             elif field in profile_fields:
-#                 profile_data[field] = data.get(field)
+        return super().validate(attrs)
 
-#         restructured_data['user_data'] = user_data
-#         restructured_data['profile_data'] = profile_data
+    def update(self, instance, validated_data):
+        """
+        Custom update method accessing the individual fields within
+        the validated_data to update the respective instance
+        attributes.
+        """
 
-#         return restructured_data
+        email = validated_data.get('email', instance.email)
+        password = validated_data.get('password', instance.password)
 
-#     def validate(self, attrs):
-#         """
-#         Checks if the password and password_confirmation values are
-#         identical and removes the password_confirmation at the end.
-#         """
+        instance.email = email
+        instance.password = password
 
-#         user_data = attrs.get('user_data')
+        instance.save()
 
-#         password = user_data.get('password')
-#         password_confirmation = user_data.get('password_confirmation')
+        return instance
 
-#         if password and password_confirmation and\
-#                 password != password_confirmation:
-#             raise serializers.ValidationError({
-#                 'non_field_errors': [
-#                     ErrorDetail("Passwords do not match!", code='invalid')
-#                 ]
-#             })
-#         # Removing the password_confirmation
-#         attrs['user_data'].pop('password_confirmation', None)
+    def to_representation(self, instance):
+        """
+        Presents the CustomUser instance as a dictionary with nested 
+        dictionries of its foreign key instances.
+        """
 
-#         return super().validate(attrs)
+        # Creates basic user representation data
+        desired_fields = [
+            'id', 'email', 'is_active', 'is_superuser', 'is_staff'
+        ]
+        representation = {}
+        for field in desired_fields:
+            representation[field] = getattr(instance, field)
 
-#     def create(self, validated_data):
-#         """
-#         Passing in the restructured validated_data to the
-#         CostumUserCreate method.
-#         """
-#         user_data = validated_data.get('user_data')
-#         profile_data = validated_data.get('profile_data')
+        profile = getattr(instance, 'profile')
+        position = getattr(profile, 'position')
 
-#         new_user = User.objects.create(
-#             user_data=user_data,
-#             profile_data=profile_data
-#         )
+        representation['profile'] = UserProfileSerializer(
+            profile
+        ).data
+        if position:
+            representation['profile']['position'] = PositionSerializer(
+                profile.position
+            ).data
+            representation['profile']['position']['category'] \
+                = position.category.name
 
-#         return new_user
-
-#     def update(self, instance, validated_data):
-#         """
-#         Custom update method accessing the individual fields within
-#         the restructured data to update the respective instance
-#         attributes.
-#         """
-
-#         user_data = validated_data.get('user_data')
-#         profile_data = validated_data.get('profile_data')
-
-#         email = user_data.get('email', instance.email)
-#         password = user_data.get('password', instance.password)
-
-#         profile = instance.profile
-#         first_name = profile_data.get('first_name', profile.first_name)
-#         last_name = profile_data.get('last_name', profile.last_name)
-#         position = profile_data.get('position', profile.position)
-
-#         instance.email = email
-#         instance.password = make_password(password)
-#         profile.first_name = first_name
-#         profile.last_name = last_name
-#         profile.position = position
-
-#         instance.save()
-
-#         return instance
-
-#     def to_representation(self, instance):
-#         """
-#         Presents the data as a dictionary of nested instances.
-#         """
-
-#         # Creates basic user representation data
-#         desired_fields = ['id', 'email', 'last_login', 'is_active', 'profile']
-#         representation = {}
-#         for field, value in instance.__dict__.items():
-#             if field in desired_fields:
-#                 representation[field] = value
-
-#         # Serializes nested instances.
-#         profile = getattr(instance, 'profile', None)
-#         if profile:
-#             profile_data = UserProfileSerializer(profile).data
-#             representation['profile'] = profile_data
-
-#             position = getattr(profile, 'position', None)
-#             if position:
-#                 position_data = PositionSerializer(position).data
-#                 representation['profile']['position'] = position_data
-
-#                 category = getattr(position, 'category', None)
-#                 if category:
-#                     category_data = CategorySerializer(category).data
-#                     representation['profile']['position']['category'] = category_data
-
-#         return representation
+        # Owner = instance.id, removed due redundant
+        representation['profile'].pop('owner', None)
+        return representation
 
 
 class UserInitiationSerializer(serializers.Serializer):
     """
-    Initiates a user instance together with its profile.
+    Initiates a CustomUser instance together with its UserProfile.
 
-    fields:
+    Methods:
+    - validate
+    - to_internal_value
+    - create
+    - to_representation
+
+    Fields:
     - email (EmailField)
     - password (CharField)
     - password_confirmation (CharField)
@@ -293,7 +234,8 @@ class UserInitiationSerializer(serializers.Serializer):
 
     def to_representation(self, instance):
         """
-        Presents the data as a dictionary of nested instances.
+        Presents the CustomUser instance as a dictionary with nested 
+        dictionries of its foreign key instances.
         """
 
         # Creates basic user representation data
@@ -308,13 +250,15 @@ class UserInitiationSerializer(serializers.Serializer):
         position = getattr(profile, 'position')
 
         representation['profile'] = UserProfileSerializer(
-            instance.profile
+            profile
         ).data
-        representation['profile']['position'] = PositionSerializer(
-            profile.position
-        ).data
-        representation['profile']['position']['category'] = CategorySerializer(
-            position.category
-        ).data
+        if position:
+            representation['profile']['position'] = PositionSerializer(
+                profile.position
+            ).data
+            representation['profile']['position']['category'] \
+                = position.category.name
 
+        # Owner = instance.id, removed due redundant
+        representation['profile'].pop('owner', None)
         return representation

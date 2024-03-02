@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from rest_framework import viewsets, response, status, permissions
+from rest_framework import viewsets, response, status, permissions, filters
 from rest_framework.authentication import TokenAuthentication
 from api import models, serializers
 from django.contrib.auth import get_user_model
@@ -7,7 +7,7 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 
-class CustomUserView(viewsets.ViewSet):
+class CustomUserView(viewsets.GenericViewSet):
     """
     Creates an instance of the CustomUser model with its respective
     UserProfile.
@@ -22,17 +22,34 @@ class CustomUserView(viewsets.ViewSet):
     """
 
     authentication_classes = [TokenAuthentication]
+    queryset = User.objects.all()
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['id', 'email']
+    ordering_fields = ['id', 'email']
+    lookup_field = 'email'
 
     def get_permissions(self):
         """
         Returns permission classes based on the acessed view action.
         """
+        permission_classes = []
         if self.action == 'create':
-            permission_classes = [permissions.IsAdminUser]
+            permission_classes = []
 
         return [permission() for permission in permission_classes]
 
-    def create(self, request):
+    def get_serializer_class(self):
+        """
+        Returns the serializer class based on the view action.
+        unlike the other view actions the create action is using an
+        UserInitiationSerializer.
+        """
+        if self.action == 'create':
+            return serializers.UserInitiationSerializer
+
+        return serializers.CustomUserSerializer
+
+    def create(self, request, * args, **kwargs):
         """
         Creates a CustomUser instance together with its UserProfile
         instance.
@@ -46,7 +63,7 @@ class CustomUserView(viewsets.ViewSet):
         - position (SlugRelatedField: slug_field='title')
         """
 
-        serializer = serializers.UserInitiationSerializer(data=request.data)
+        serializer = self.get_serializer(request.data)
 
         if serializer.is_valid():
             user = serializer.save()
@@ -67,3 +84,15 @@ class CustomUserView(viewsets.ViewSet):
             }, status=status.HTTP_400_BAD_REQUEST
 
         )
+
+    def list(self, request, *args, **kwargs):
+        """
+        Retrieves list of multiple CustomUser instances.
+        """
+        queryset = self.queryset
+        serializer = self.get_serializer(
+            instance=queryset,
+            many=True
+        )
+
+        return response.Response(serializer.data)
