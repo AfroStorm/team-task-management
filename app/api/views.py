@@ -1,7 +1,8 @@
 from django.shortcuts import render, get_object_or_404
-from rest_framework import viewsets, response, status, permissions, filters
+from rest_framework import viewsets, response, status, permissions as perm, \
+    filters, generics
 from rest_framework.authentication import TokenAuthentication
-from api import models, serializers
+from api import models, serializers, permissions as cust_perm
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -33,7 +34,15 @@ class CustomUserView(viewsets.GenericViewSet):
         """
         permission_classes = []
         if self.action == 'create':
-            permission_classes = [permissions.IsAdminUser]
+            permission_classes = [perm.IsAdminUser]
+
+        elif self.action == 'list' or self.action == 'retrieve':
+            permission_classes = [perm.IsAuthenticated]
+
+        if self.action == 'update' \
+                or self.action == 'partial_update' \
+                or self.action == 'destroy':
+            permission_classes = [cust_perm.IsOwner | perm.IsAdminUser]
 
         return [permission() for permission in permission_classes]
 
@@ -66,13 +75,12 @@ class CustomUserView(viewsets.GenericViewSet):
 
         if serializer.is_valid():
             user = serializer.save()
-            serialized_data = serializers.UserInitiationSerializer(
-                instance=user
-            ).data
+            serialized_data = self.get_serializer(instance=user).data
 
             return response.Response(
                 {
-                    'message': 'User successfully created', 'data': serialized_data
+                    'message': 'User successfully created',
+                    'data': serialized_data
                 }, status=status.HTTP_201_CREATED
             )
 
@@ -82,6 +90,77 @@ class CustomUserView(viewsets.GenericViewSet):
 
             }, status=status.HTTP_400_BAD_REQUEST
 
+        )
+
+    def update(self, request, pk):
+        """
+        Updates single CustomUser instances.
+        """
+
+        instance = self.get_object()
+        serializer = self.get_serializer(
+            instance=instance,
+            data=request.data
+        )
+        if serializer.is_valid():
+            user = serializer.save()
+            serialized_data = self.get_serializer(instance=user).data
+
+            return response.Response(
+                {
+                    'message': 'User successfully updated',
+                    'data': serialized_data
+                }, status=status.HTTP_200_OK
+            )
+
+        return response.Response(
+            {
+                'message': 'Validation error', 'error': serializer.errors
+
+            }, status=status.HTTP_400_BAD_REQUEST
+
+        )
+
+    def partial_update(self, request, pk):
+        """
+        Partially updates single CustomUser instances.
+        """
+
+        instance = self.get_object()
+        serializer = self.get_serializer(
+            instance=instance,
+            data=request.data,
+            partial=True
+        )
+        if serializer.is_valid():
+            user = serializer.save()
+            serialized_data = self.get_serializer(instance=user).data
+
+            return response.Response(
+                {
+                    'message': 'User successfully updated',
+                    'data': serialized_data
+                }, status=status.HTTP_200_OK
+            )
+
+        return response.Response(
+            {
+                'message': 'Validation error', 'error': serializer.errors
+
+            }, status=status.HTTP_400_BAD_REQUEST
+
+        )
+
+    def destroy(self, request, pk):
+        """
+        Destroys single CustomUser instance.
+        """
+        instance = self.get_object()
+        instance.delete()
+
+        return response.Response(
+            {'message': 'User successfully deleted'},
+            status.HTTP_204_NO_CONTENT
         )
 
     def list(self, request):

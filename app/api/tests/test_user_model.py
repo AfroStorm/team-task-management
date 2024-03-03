@@ -49,6 +49,18 @@ class TestCustomUserModel(APITestCase):
                 'position': self.position1
             }
         )
+        self.user2 = User.objects.create(
+            user_data={
+                'email': 'another.email@example.com',
+                'password': 'testpassword123'
+
+            },
+            profile_data={
+                'first_name': 'Rebecca',
+                'last_name': 'Brown',
+                'position': self.position2
+            }
+        )
         self.admin = User.objects.create_superuser(
             user_data={
                 'email': 'admin.email@example.com',
@@ -56,8 +68,8 @@ class TestCustomUserModel(APITestCase):
 
             },
             profile_data={
-                'first_name': 'John',
-                'last_name': 'Doe',
+                'first_name': 'Kevin',
+                'last_name': 'Smith',
                 'position': self.position1
             }
         )
@@ -231,6 +243,9 @@ class TestCustomUserModel(APITestCase):
                 },
             },
         }
+        # Password not in serializer data
+        self.assertNotIn(serializer.data, user.password)
+        # Expected structure
         self.assertEqual(serializer.data, expected_data)
 
     # View tests
@@ -240,7 +255,7 @@ class TestCustomUserModel(APITestCase):
         instance and giving the expected responses.
         """
 
-        test_data = {
+        data = {
             'email': 'uniqueemail@gmail.com',
             'password': 'blabla123',
             'password_confirmation': 'blabla123',
@@ -249,32 +264,150 @@ class TestCustomUserModel(APITestCase):
             'position': self.position1.title,
         }
         url = reverse('customuser-list')
-        response = self.client.post(url, test_data, format='json')
 
         # PERMISSION TESTS
         # Unauthenticated user
+        response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
         # Non-admin user
         self.client.force_authenticate(user=self.user)
-
-        response = self.client.post(url, test_data, format='json')
+        response = self.client.post(url, data, format='json')
+        # Forbidden
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
         # Admin user
         self.client.force_authenticate(user=self.admin)
+        # Successful request
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        # Message not None
+        message = response.data.get('message')
+        self.assertIsNotNone(message)
 
         # Bad request response
-        test_data['position'] = self.position1.id
-        response = self.client.post(url, test_data, format='json')
+        data['position'] = self.position1.id
+        response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        # Message not None
+        message = response.data.get('message')
+        self.assertIsNotNone(message)
 
-        # Good request response
-        test_data['position'] = self.position1.title
-        response = self.client.post(url, test_data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+    def test_user_update_action(self):
+        """
+        Tests if the CustomUserView update action works as expected.
+        """
+        data = {
+            'email': 'updateduniqueemail@gmail.com',
+            'password': 'blabla456',
+            'password_confirmation': 'blabla456',
+        }
+        url = reverse('customuser-detail', args=[self.user.id])
 
-        # FIELD TESTS
-        # Password not in response data
-        response_data = response.data.get('data')
-        self.assertNotIn('password', response_data)
+        # Unauthenticated user
+        response = self.client.put(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # Non-owner
+        self.client.force_authenticate(user=self.user2)
+        response = self.client.put(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        # Admin user
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.put(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Owner
+        self.client.force_authenticate(user=self.user)
+        # Successful request
+        response = self.client.put(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Message not None
+        message = response.data.get('message')
+        self.assertIsNotNone(message)
+
+        # Bad request
+        data['password'] = 'blabla789'  # Incorrect password
+        response = self.client.put(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        # Message not None
+        message = response.data.get('message')
+        self.assertIsNotNone(message)
+
+    def test_user_partial_update_action(self):
+        """
+        Tests if the CustomUserView partial update action works as
+        expected.
+        """
+        data = {
+            'password': 'blabla456',
+            'password_confirmation': 'blabla456',
+        }
+        url = reverse('customuser-detail', args=[self.user.id])
+
+        # PERMISSION TESTS
+        # Unauthenticated user
+        response = self.client.patch(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # Non-owner
+        self.client.force_authenticate(user=self.user2)
+        response = self.client.patch(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        # Admin user
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.patch(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Owner
+        self.client.force_authenticate(user=self.user)
+        # Successful request
+        response = self.client.patch(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Message not None
+        message = response.data.get('message')
+        self.assertIsNotNone(message)
+        # Bad request
+        data['password'] = 'blabla789'  # Incorrect password
+        response = self.client.patch(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        # Message not None
+        message = response.data.get('message')
+        self.assertIsNotNone(message)
+
+    def test_user_list_action(self):
+        """
+        Tests if the CustomUserView list action returns a list of user
+        instance.
+        """
+
+        url = reverse('customuser-list')
+
+        # PERMISSION TESTS
+        # Unauthenticated user
+        response = self.client.get(url, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # Authenticated user
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(url, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_user_retrieve_action(self):
+        """
+        Tests if the CustomUserView retrieve action works as expected.
+        """
+
+        url = reverse('customuser-detail', args=[self.user.id])
+
+        # PERMISSION TESTS
+        # Unauthenticated user
+        response = self.client.get(url, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # Authenticated user
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(url, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
