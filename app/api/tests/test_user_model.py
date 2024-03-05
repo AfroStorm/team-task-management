@@ -1,7 +1,6 @@
-from rest_framework.test import APITestCase, APIRequestFactory
+from rest_framework.test import APITestCase
 from api import models, serializers
 from rest_framework import status
-from collections import OrderedDict
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 
@@ -189,8 +188,8 @@ class TestCustomUserModel(APITestCase):
 
     def test_serializer_create(self):
         """
-        Tests if the serializer create method is correctly creating a
-        user instance.
+        Tests if the UserInititionSerilizer create method is
+        successfully creating a user instance.
         """
 
         data = {
@@ -244,7 +243,121 @@ class TestCustomUserModel(APITestCase):
             },
         }
         # Password not in serializer data
-        self.assertNotIn(serializer.data, user.password)
+        self.assertNotIn(user.password, serializer.data)
+        # Expected structure
+        self.assertEqual(serializer.data, expected_data)
+
+    # CustomUserSerializer
+    def test_serializer_password_confirmation(self):
+        """
+        Tests the password validation of the CustomUserSerializer when
+        wrong password data is passed to it, as well as when password
+        data is passed to it.
+        """
+
+        # Password confirmation fail
+        wrong_data = {
+            'email': 'peterlustig@gmail.com',
+            'password': 'testpassword123',
+            'password_confirmation': 'testpassword456',  # Wrong password
+            'first_name': 'Peter',
+            'last_name': 'Lustig',
+            'position': self.position1
+        }
+        serializer = serializers.CustomUserSerializer(
+            data=wrong_data
+        )
+
+        # Catch validation error
+        with self.assertRaises(serializers.ValidationError) as context:
+            serializer.is_valid(raise_exception=True)
+
+        error_detail = context.exception.detail
+        expected_error_detail = {
+            'non_field_errors': [
+                serializers.ErrorDetail(
+                    "Passwords do not match!", code='invalid'
+                )
+            ]
+        }
+        # Expected error details
+        self.assertEqual(error_detail, expected_error_detail)
+
+        # Password confirmation success
+        correct_data = {
+            'email': 'peterlustig@gmail.com',
+            'password': 'testpassword123',
+            'password_confirmation': 'testpassword123',  # Correct password
+            'first_name': 'Peter',
+            'last_name': 'Lustig',
+            'position': self.position1
+        }
+        serializer = serializers.CustomUserSerializer(
+            data=correct_data
+        )
+        # Data is valid
+        self.assertTrue(serializer.is_valid())
+
+    def test_serializer_update(self):
+        """
+        Tests if the CustomUserSerializer update method is correctly
+        updating a user instance.
+        """
+
+        data = {
+            'email': 'patched.email@gmail.com',
+            'password': 'blabla789',
+            'password_confirmation': 'blabla789',
+        }
+        serializer = serializers.CustomUserSerializer(
+            instance=self.user2,
+            data=data,
+            partial=True
+        )
+
+        self.assertTrue(serializer.is_valid())
+        user = serializer.save()
+
+        # valid CustomUser instance
+        self.assertIsNotNone(user)
+        # Correct email
+        self.assertEqual(user.email, data.get('email'))
+        # Correct password
+        self.assertEqual(user.password, data.get('password'))
+
+    def test_serializer_serialization(self):
+        """
+        Tests if the to_representation method of the
+        CustomUserSerializer presents the data in form of nested
+        dictionaries.
+        """
+
+        serializer = serializers.CustomUserSerializer(instance=self.user)
+        user = self.user
+        profile = self.user.profile
+        position = self.user.profile.position
+        category = self.user.profile.position.category
+        expected_data = {
+            'id': user.id,
+            'email': user.email,
+            'is_active': user.is_active,
+            'is_superuser': user.is_superuser,
+            'is_staff': user.is_staff,
+            'profile': {
+                'id': profile.id,
+                'first_name': profile.first_name,
+                'last_name': profile.last_name,
+                'position': {
+                    'id': position.id,
+                    'title': position.title,
+                    'description': position.description,
+                    'is_task_manager': position.is_task_manager,
+                    'category': category.name
+                },
+            },
+        }
+        # Password not in serializer data
+        self.assertNotIn(user.password, serializer.data)
         # Expected structure
         self.assertEqual(serializer.data, expected_data)
 
@@ -411,3 +524,35 @@ class TestCustomUserModel(APITestCase):
         self.client.force_authenticate(user=self.user)
         response = self.client.get(url, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_user_destroy(self):
+        """
+        Tests if the CustomUserVIew action destroy works as expected.
+        """
+
+        url = reverse('customuser-detail', args=[self.user.id])
+
+        # PERMISSION TESTS
+        # Unauthenticated user
+        response = self.client.delete(url, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # Non-owner
+        self.client.force_authenticate(user=self.user2)
+        response = self.client.delete(url, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        # Owner
+        self.client.force_authenticate(user=self.user)
+        response = self.client.delete(url, format='json')
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        # Admin
+        self.client.force_authenticate(user=self.admin)
+        # Successful request
+        url = reverse('customuser-detail', args=[self.user2.id])
+        response = self.client.delete(url, format='json')
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        # Message not None
+        message = response.data.get('message')
+        self.assertIsNotNone(message)

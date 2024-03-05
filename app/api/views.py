@@ -1,6 +1,6 @@
 from django.shortcuts import render, get_object_or_404
 from rest_framework import viewsets, response, status, permissions as perm, \
-    filters, generics
+    filters
 from rest_framework.authentication import TokenAuthentication
 from api import models, serializers, permissions as cust_perm
 from django.contrib.auth import get_user_model

@@ -25,6 +25,10 @@ class PositionSerializer(serializers.ModelSerializer):
     """
     A modelserializer for the Position model.
     """
+    category = serializers.SlugRelatedField(
+        queryset=models.Category.objects.all(),
+        slug_field='name'
+    )
 
     class Meta:
         model = models.Position
@@ -262,3 +266,13 @@ class UserInitiationSerializer(serializers.Serializer):
         # Owner = instance.id, removed due redundant
         representation['profile'].pop('owner', None)
         return representation
+
+
+class TaskSerializer(serializers.ModelSerializer):
+    """
+    A modelserializer for the Task model.
+    """
+
+    class Meta:
+        model = models.Task
+        fields = '__all__'
