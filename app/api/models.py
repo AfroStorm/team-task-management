@@ -306,7 +306,7 @@ class Task(models.Model):
     )
     team_members = models.ManyToManyField(
         UserProfile,
-        related_name='team_member_tasks',
+        related_name='teams',
     )
 
     def __str__(self) -> str:

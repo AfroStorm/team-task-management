@@ -1,6 +1,6 @@
 from django.shortcuts import render, get_object_or_404
 from rest_framework import viewsets, response, status, permissions as perm, \
-    filters
+    filters, decorators
 from rest_framework.authentication import TokenAuthentication
 from api import models, serializers, permissions as cust_perm
 from django.contrib.auth import get_user_model
@@ -10,13 +10,18 @@ User = get_user_model()
 
 class CustomUserView(viewsets.GenericViewSet):
     """
-    Creates an instance of the CustomUser model with its respective
-    UserProfile.
+    Manages the CRUD operations for the CustomUser model. The create
+    action uses a different serializer to create a CustomUser instance
+    together  with its UserProfile.
 
-    Expected fields:
+    Expected fields for update/delete operations:
+
     - email
     - password
     - password_confirmation
+
+    additional fields for create operation:
+
     - first_name
     - last_name
     - position_instance (Position.title)
@@ -184,3 +189,83 @@ class CustomUserView(viewsets.GenericViewSet):
         serializer = self.get_serializer(instance=instance)
 
         return response.Response(serializer.data)
+
+
+class TaskView(viewsets.ModelViewSet):
+    """
+    Creates an instance of the CustomUser model with its respective
+    UserProfile.
+
+    Expected fields:
+    - title
+    - description
+    - due_date
+    - category (Category.name)
+    - priority (Priority.caption)
+    - status (Status.caption)
+
+    Extra actions:
+    - Add team member
+    """
+
+    @decorators.action(methods=['patch'], detail=True)
+    def add_team_member(self, request, pk):
+        """
+        Adds a CustomUser to the team_members field of the Task
+        instance. Only admin and Task.owner are allowed.
+
+        Expected data:
+        - {CustomUserID: ID}
+        """
+
+        task_instance = self.get_object()
+        user_id = request.data.get('CustomUserID')
+        team_member = get_object_or_404(User, id=user_id).profile
+        task_instance.team_members.add(team_member)
+
+        serialized_data = self.get_serializer(task_instance).data
+        member_list = serialized_data.get('team_members')
+
+        return response.Response(
+            {
+                'message': 'Team member got successfully added',
+                'team_members': member_list
+            }, status=status.HTTP_200_OK
+        )
+
+    @add_team_member.mapping.delete
+    def remove_team_member(self, request, pk):
+        """
+        Removes a CustomUser from the team_members field of the Task
+        instance. Only admin and Task.owner are allowed.
+
+        Expected data:
+        - {CustomUserID: ID}
+        """
+
+        user_id = request.data.get('CustomUserID')
+        team_member = get_object_or_404(User, id=user_id).profile
+        task_instance = self.get_object()
+
+        if team_member in task_instance.team_members.all():
+            task_instance.team_members.remove(team_member)
+
+            serialized_data = self.get_serializer(task_instance).data
+            member_list = serialized_data.get('team_members')
+
+            return response.Response(
+                {
+                    'message': 'Team member got successfully removed',
+                    'team_members': member_list
+                }, status=status.HTTP_200_OK
+            )
+
+        serialized_data = self.get_serializer(task_instance).data
+        member_list = serialized_data.get('team_members')
+
+        return response.Response(
+            {
+                'message': 'User is not part of the Tasks team',
+                'team_members': member_list
+            }, status=status.HTTP_400_BAD_REQUEST
+        )
