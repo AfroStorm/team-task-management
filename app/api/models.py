@@ -277,7 +277,7 @@ class Task(models.Model):
     """
     title = models.CharField(max_length=100)
     description = models.TextField()
-    due_date = models.DateField()
+    due_date = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(blank=True, null=True)
 

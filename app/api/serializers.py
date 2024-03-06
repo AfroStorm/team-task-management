@@ -272,7 +272,54 @@ class TaskSerializer(serializers.ModelSerializer):
     """
     A modelserializer for the Task model.
     """
+    category = serializers.SlugRelatedField(
+        queryset=models.Category.objects.all(),
+        slug_field='name'
+    )
+    priority = serializers.SlugRelatedField(
+        queryset=models.Priority.objects.all(),
+        slug_field='caption'
+    )
+    status = serializers.SlugRelatedField(
+        queryset=models.Status.objects.all(),
+        slug_field='caption'
+    )
 
     class Meta:
         model = models.Task
         fields = '__all__'
+        read_only_fields = ['created_at', 'owner', 'team_members']
+
+    def to_representation(self, instance):
+        """
+        Restricts representation for request users that are not a team
+        member of the task. Admin users/task owners are exmept from 
+        this. Also presents the Task owner and team_members
+        (UserProfiles) as the user.email for readability.
+
+        """
+        request = self.context.get('request')
+        representation = super().to_representation(instance)
+
+        owner_email = instance.owner.owner.email
+        team_members = []
+        for profile in instance.team_members.all():
+            team_member_email = profile.owner.email
+            team_members.append(team_member_email)
+
+        # Team members = [profile.id,] -> Team members = [user.email,]
+        representation['team_members'] = team_members
+        # Owner = profile.id -> Owner = user.email
+        representation['owner'] = owner_email
+
+        if request:
+            user = request.user
+            profile = request.user.profile
+
+            if user.is_staff or profile == instance.owner:
+                return representation
+
+            elif profile not in instance.team_members.all():
+                return {}
+
+        return representation

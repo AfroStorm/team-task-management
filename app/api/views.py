@@ -208,6 +208,18 @@ class TaskView(viewsets.ModelViewSet):
     - Add team member
     """
 
+    def get_permissions(self):
+        """
+        Returns permission classes based on the acessed view action.
+        """
+
+        permission_classes = []
+        if self.action == 'add_team_member' or\
+                self.action == 'remove_team_member':
+            permission_classes = [perm.IsAdminUser | cust_perm.IsOwner]
+
+        return [permission for permission in permission_classes]
+
     @decorators.action(methods=['patch'], detail=True)
     def add_team_member(self, request, pk):
         """
