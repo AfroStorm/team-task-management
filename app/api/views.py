@@ -220,6 +220,13 @@ class TaskView(viewsets.ModelViewSet):
 
         return [permission for permission in permission_classes]
 
+    def perform_create(self, serializer):
+        """
+        Saves the request user as the Task owner.
+        """
+        serializer.validated_data['owner'] = self.request.user.profile
+        return super().perform_create(serializer)
+
     @decorators.action(methods=['patch'], detail=True)
     def add_team_member(self, request, pk):
         """

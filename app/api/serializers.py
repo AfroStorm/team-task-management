@@ -272,6 +272,7 @@ class TaskSerializer(serializers.ModelSerializer):
     """
     A modelserializer for the Task model.
     """
+
     category = serializers.SlugRelatedField(
         queryset=models.Category.objects.all(),
         slug_field='name'
