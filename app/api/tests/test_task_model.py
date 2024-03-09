@@ -328,7 +328,7 @@ class TestTaskModel(APITestCase):
         new_priority = models.Priority.objects.create(
             caption='Low Priority'
         )
-        new_update = models.Status.objects.create(
+        new_status = models.Status.objects.create(
             caption='In Completed',
             description='Indicates that a task is completed.'
         )
@@ -339,7 +339,7 @@ class TestTaskModel(APITestCase):
             'completed_at': timezone.now() + timezone.timedelta(days=7),
             'category': new_category.name,
             'priority': new_priority.caption,
-            'status': new_update.caption
+            'status': new_status.caption
         }
 
         serializer = serializers.TaskSerializer(
@@ -495,7 +495,7 @@ class TestTaskModel(APITestCase):
         new_priority = models.Priority.objects.create(
             caption='Low Priority'
         )
-        new_update = models.Status.objects.create(
+        new_status = models.Status.objects.create(
             caption='In Completed',
             description='Indicates that a task is completed.'
         )
@@ -506,7 +506,7 @@ class TestTaskModel(APITestCase):
             'completed_at': timezone.now() + timezone.timedelta(days=7),
             'category': new_category.name,
             'priority': new_priority.caption,
-            'status': new_update.caption
+            'status': new_status.caption
         }
         url = reverse('task-list')
 
@@ -523,14 +523,11 @@ class TestTaskModel(APITestCase):
         # Authenticated
         self.client.force_authenticate(user=self.task_unrelated_user)
         response = self.client.post(url, request_data, format='json')
-
         # Correct status code
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-
         # Is Task instance
         task_id = response.data.get('id')
         task_instance = get_object_or_404(models.Task, id=task_id)
-
         self.assertTrue(isinstance(task_instance, models.Task))
         # Correct owner
         self.assertEqual(
@@ -566,11 +563,12 @@ class TestTaskModel(APITestCase):
 
         # both created_at fields are set to date() to succeed in
         # comparisson otherwise millisecond difference fails test
-        created_at = datetime.strptime(
-            actual_fields.pop('created_at', None), '%Y-%m-%dT%H:%M:%S.%fZ'
+        created_at = actual_fields.pop('created_at', None)
+        created_at_date_format = datetime.strptime(
+            created_at, '%Y-%m-%dT%H:%M:%S.%fZ'
         ).date()
 
-        actual_fields['created_at'] = created_at
+        actual_fields['created_at'] = created_at_date_format
         expected_fields['created_at'] = timezone.now().date()
 
         self.assertEqual(actual_fields, expected_fields)
