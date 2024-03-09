@@ -41,12 +41,10 @@ class CustomUserView(viewsets.GenericViewSet):
         if self.action == 'create':
             permission_classes = [perm.IsAdminUser]
 
-        elif self.action == 'list' or self.action == 'retrieve':
+        elif self.action in ['retrieve', 'list']:
             permission_classes = [perm.IsAuthenticated]
 
-        if self.action == 'update' \
-                or self.action == 'partial_update' \
-                or self.action == 'destroy':
+        if self.action in ['update', 'partial_update', 'destroy']:
             permission_classes = [cust_perm.IsOwner | perm.IsAdminUser]
 
         return [permission() for permission in permission_classes]
@@ -208,17 +206,20 @@ class TaskView(viewsets.ModelViewSet):
     - Add team member
     """
 
+    queryset = models.Task.objects.all()
+    serializer_class = serializers.TaskSerializer
+    authentication_classes = [TokenAuthentication]
+
     def get_permissions(self):
         """
         Returns permission classes based on the acessed view action.
         """
 
         permission_classes = []
-        if self.action == 'add_team_member' or\
-                self.action == 'remove_team_member':
+        if self.action in ['add_team_member', 'remove_team_member']:
             permission_classes = [perm.IsAdminUser | cust_perm.IsOwner]
 
-        return [permission for permission in permission_classes]
+        return [permission() for permission in permission_classes]
 
     def perform_create(self, serializer):
         """
@@ -231,15 +232,27 @@ class TaskView(viewsets.ModelViewSet):
     def add_team_member(self, request, pk):
         """
         Adds a CustomUser to the team_members field of the Task
-        instance. Only admin and Task.owner are allowed.
+        instance.
+
+        Allows only:
+        - Admin 
+        - Task.owner.
 
         Expected data:
-        - {CustomUserID: ID}
+        - {team_member: id}
         """
 
+        try:
+            user_id = request.data.get('team_member')
+            team_member = get_object_or_404(User, id=user_id).profile
+        except:
+            return response.Response(
+                {
+                    'message': 'Team member does not exist'
+                }, status=status.HTTP_400_BAD_REQUEST
+            )
+
         task_instance = self.get_object()
-        user_id = request.data.get('CustomUserID')
-        team_member = get_object_or_404(User, id=user_id).profile
         task_instance.team_members.add(team_member)
 
         serialized_data = self.get_serializer(task_instance).data
@@ -259,12 +272,22 @@ class TaskView(viewsets.ModelViewSet):
         instance. Only admin and Task.owner are allowed.
 
         Expected data:
-        - {CustomUserID: ID}
+        - {team_member: id}
         """
 
-        user_id = request.data.get('CustomUserID')
-        team_member = get_object_or_404(User, id=user_id).profile
+        try:
+            user_id = request.data.get('team_member')
+            team_member = get_object_or_404(User, id=user_id).profile
+        except:
+            return response.Response(
+                {
+                    'message': 'Team member does not exist'
+                }, status=status.HTTP_400_BAD_REQUEST
+            )
+
         task_instance = self.get_object()
+        serialized_data = self.get_serializer(task_instance).data
+        member_list = serialized_data.get('team_members')
 
         if team_member in task_instance.team_members.all():
             task_instance.team_members.remove(team_member)
@@ -278,9 +301,6 @@ class TaskView(viewsets.ModelViewSet):
                     'team_members': member_list
                 }, status=status.HTTP_200_OK
             )
-
-        serialized_data = self.get_serializer(task_instance).data
-        member_list = serialized_data.get('team_members')
 
         return response.Response(
             {

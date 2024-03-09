@@ -82,7 +82,9 @@ class TestTaskModel(APITestCase):
             'last_name': 'Jackson',
             'position': self.position_instance,
         }
-        self.task_unrelated_user = User.objects.create(user_data, profile_data)
+        self.task_unrelated_user = User.objects.create(
+            user_data, profile_data
+        )
 
         # Admin user
         user_data = {
@@ -370,3 +372,108 @@ class TestTaskModel(APITestCase):
                 self.assertTrue(fields.get(field).read_only)
             else:
                 self.assertFalse(fields.get(field).read_only)
+
+    # View tests
+    def test_add_team_member(self):
+        """
+        Tests if action is adding a CustomUser to the Task instance.
+        Only allows:
+        - Task.owner
+        - Admin
+        """
+
+        url = reverse('task-add_team_member', args=[self.task.id])
+        data = {
+            'team_member': self.task_unrelated_user.profile.id
+        }
+
+        # UNAUTHENTICATED
+        response = self.client.patch(url, data, format='json')
+        # Correct status code
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # ADMIN
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.patch(url, data, format='json')
+        # Correct status code
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # TASK OWNER
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.patch(url, data, format='json')
+
+        # Correct status code
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Team member added
+        retrieved_team = response.data.get('team_members')
+        expected_team = [
+            self.team_member.email,
+            self.task_unrelated_user.email
+        ]
+        self.assertEqual(retrieved_team, expected_team)
+        # Message not None
+        message = response.data.get('message')
+        self.assertIsNotNone(message)
+
+        # Bad request
+        data['team_member'] = 'wrong.email@gmail.com'
+        response = self.client.patch(url, data, format='json')
+        # Correct status code
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        # Message not None
+        message = response.data.get('message')
+        self.assertIsNotNone(message)
+
+    def test_remove_team_member(self):
+        """
+        Tests if action is removing a CustomUser from the Task
+        instance.
+        Only allows:
+        - Task.owner
+        - Admin
+        """
+
+        url = reverse('task-remove_team_member', args=[self.task.id])
+        data = {
+            'team_member': self.team_member.profile.id
+        }
+
+        # UNAUTHENTICATED
+        response = self.client.delete(url, data, format='json')
+        # Correct status code
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # ADMIN
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.delete(url, data, format='json')
+        # Correct status code
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Add removed team member again for testing
+        self.task.team_members.add(self.team_member.profile)
+
+        # TASK OWNER
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.delete(url, data, format='json')
+
+        # Correct status code
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Team member removed
+        retrieved_team = response.data.get('team_members')
+        expected_team = []
+        self.assertEqual(retrieved_team, expected_team)
+        # Message not None
+        message = response.data.get('message')
+        self.assertIsNotNone(message)
+
+        # Add removed team member again for testing
+        self.task.team_members.add(self.team_member.profile)
+
+        # Bad request
+        data['team_member'] = 'wrong.email@gmail.com'
+        response = self.client.delete(url, data, format='json')
+        # Correct status code
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        # Message not None
+        message = response.data.get('message')
+        self.assertIsNotNone(message)

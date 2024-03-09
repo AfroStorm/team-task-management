@@ -16,3 +16,11 @@ class IsOwner(permissions.BasePermission):
             if request and request.user and request.user.is_authenticated:
                 if request.user == obj:
                     return True
+
+        if isinstance(view, views.TaskView):
+            if request and request.user and request.user.is_authenticated:
+                profile = request.user.profile
+                task_owner = obj.owner
+
+                if profile == task_owner:
+                    return True
