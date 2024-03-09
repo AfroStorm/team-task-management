@@ -362,7 +362,7 @@ class TestCustomUserModel(APITestCase):
         self.assertEqual(serializer.data, expected_data)
 
     # View tests
-    def test_user_create_action(self):
+    def test_view_create_action(self):
         """
         Tests if the CustomUserVIew is successfully creating a user
         instance and giving the expected responses.
@@ -406,7 +406,7 @@ class TestCustomUserModel(APITestCase):
         message = response.data.get('message')
         self.assertIsNotNone(message)
 
-    def test_user_update_action(self):
+    def test_viewr_update_action(self):
         """
         Tests if the CustomUserView update action works as expected.
         """
@@ -448,7 +448,7 @@ class TestCustomUserModel(APITestCase):
         message = response.data.get('message')
         self.assertIsNotNone(message)
 
-    def test_user_partial_update_action(self):
+    def test_view_partial_update_action(self):
         """
         Tests if the CustomUserView partial update action works as
         expected.
@@ -490,7 +490,7 @@ class TestCustomUserModel(APITestCase):
         message = response.data.get('message')
         self.assertIsNotNone(message)
 
-    def test_user_list_action(self):
+    def test_view_list_action(self):
         """
         Tests if the CustomUserView list action returns a list of user
         instance.
@@ -508,7 +508,7 @@ class TestCustomUserModel(APITestCase):
         response = self.client.get(url, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-    def test_user_retrieve_action(self):
+    def test_view_retrieve_action(self):
         """
         Tests if the CustomUserView retrieve action works as expected.
         """
@@ -525,7 +525,7 @@ class TestCustomUserModel(APITestCase):
         response = self.client.get(url, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-    def test_user_destroy(self):
+    def test_view_destroy(self):
         """
         Tests if the CustomUserVIew action destroy works as expected.
         """

@@ -219,6 +219,9 @@ class TaskView(viewsets.ModelViewSet):
         if self.action in ['add_team_member', 'remove_team_member']:
             permission_classes = [perm.IsAdminUser | cust_perm.IsOwner]
 
+        elif self.action == 'create':
+            permission_classes = [perm.IsAdminUser | perm.IsAuthenticated]
+
         return [permission() for permission in permission_classes]
 
     def perform_create(self, serializer):

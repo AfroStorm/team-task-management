@@ -1,6 +1,8 @@
 from rest_framework.test import APITestCase, APIRequestFactory
 from api import models, serializers
 from rest_framework import status
+from datetime import datetime
+from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -374,7 +376,7 @@ class TestTaskModel(APITestCase):
                 self.assertFalse(fields.get(field).read_only)
 
     # View tests
-    def test_add_team_member(self):
+    def test_view_add_team_member(self):
         """
         Tests if action is adding a CustomUser to the Task instance.
         Only allows:
@@ -424,7 +426,7 @@ class TestTaskModel(APITestCase):
         message = response.data.get('message')
         self.assertIsNotNone(message)
 
-    def test_remove_team_member(self):
+    def test_view_remove_team_member(self):
         """
         Tests if action is removing a CustomUser from the Task
         instance.
@@ -477,3 +479,98 @@ class TestTaskModel(APITestCase):
         # Message not None
         message = response.data.get('message')
         self.assertIsNotNone(message)
+
+    def test_view_create(self):
+        """
+        Tests if the perform create method of the TaskView assigns
+        the reques.user.profile as Task.owner
+        """
+
+        # Preparing request data
+        new_category = models.Category.objects.create(
+            name='Information Technology',
+            description='''A domain specialized in the area of information
+                         technology'''
+        )
+        new_priority = models.Priority.objects.create(
+            caption='Low Priority'
+        )
+        new_update = models.Status.objects.create(
+            caption='In Completed',
+            description='Indicates that a task is completed.'
+        )
+        request_data = {
+            'title': 'New Task Title',
+            'description': 'New task description.',
+            'due_date': timezone.now() + timezone.timedelta(days=5),
+            'completed_at': timezone.now() + timezone.timedelta(days=7),
+            'category': new_category.name,
+            'priority': new_priority.caption,
+            'status': new_update.caption
+        }
+        url = reverse('task-list')
+
+        # --PERMISSION TESTS--
+        # unauthenticated
+        response = self.client.post(url, request_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # Admin
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(url, request_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        # Authenticated
+        self.client.force_authenticate(user=self.task_unrelated_user)
+        response = self.client.post(url, request_data, format='json')
+
+        # Correct status code
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        # Is Task instance
+        task_id = response.data.get('id')
+        task_instance = get_object_or_404(models.Task, id=task_id)
+
+        self.assertTrue(isinstance(task_instance, models.Task))
+        # Correct owner
+        self.assertEqual(
+            task_instance.owner, self.task_unrelated_user.profile
+        )
+
+        # --FIELD TESTS--
+        # convert dates to expected serialized date format
+        completed_at = request_data.get('completed_at').strftime(
+            '%Y-%m-%dT%H:%M:%S.%fZ'
+        )
+        due_date = request_data.get(
+            'due_date').strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+
+        # Expected data is an extension of request data
+        expected_fields = {
+            'id': task_instance.id,
+            'owner': response.wsgi_request.user.email,
+            'title': request_data.get('title'),
+            'description': request_data.get('description'),
+            'due_date': due_date,
+            'completed_at': completed_at,
+            'category': request_data.get('category'),
+            'priority': request_data.get('priority'),
+            'status': request_data.get('status'),
+            'team_members': []
+        }
+
+        # Serialize the created Task instance
+        actual_fields = serializers.TaskSerializer(
+            instance=task_instance
+        ).data
+
+        # both created_at fields are set to date() to succeed in
+        # comparisson otherwise millisecond difference fails test
+        created_at = datetime.strptime(
+            actual_fields.pop('created_at', None), '%Y-%m-%dT%H:%M:%S.%fZ'
+        ).date()
+
+        actual_fields['created_at'] = created_at
+        expected_fields['created_at'] = timezone.now().date()
+
+        self.assertEqual(actual_fields, expected_fields)
