@@ -222,6 +222,11 @@ class TaskView(viewsets.ModelViewSet):
         elif self.action == 'create':
             permission_classes = [perm.IsAdminUser | perm.IsAuthenticated]
 
+        elif self.action in ['partial_update', 'update']:
+            permission_classes = [
+                perm.IsAdminUser | cust_perm.IsOwner | cust_perm.IsTeamMember
+            ]
+
         return [permission() for permission in permission_classes]
 
     def perform_create(self, serializer):
@@ -242,28 +247,39 @@ class TaskView(viewsets.ModelViewSet):
         - Task.owner.
 
         Expected data:
-        - {team_member: id}
+        - {team_members: [request.user.id,]}
         """
-
-        try:
-            user_id = request.data.get('team_member')
-            team_member = get_object_or_404(User, id=user_id).profile
-        except:
-            return response.Response(
-                {
-                    'message': 'Team member does not exist'
-                }, status=status.HTTP_400_BAD_REQUEST
-            )
-
+        team_members = request.data.get('team_members')
         task_instance = self.get_object()
-        task_instance.team_members.add(team_member)
+
+        def add_team_members(team_members, task_instance):
+            """
+            Checks if the id within the requet data are valid, then
+            retrieves the user(userprofile) instances and adds them
+            to the task instance. Sends a bad request response when
+            user(userprofile) doesnt exist
+            """
+            for id in team_members:
+                try:
+                    team_member = get_object_or_404(User, id=id).profile
+                except User.DoesNotExist:
+                    return response.Response(
+                        {
+                            'message': f'''Team member with the id {id}
+                            does not exist'''
+                        }, status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                task_instance.team_members.add(team_member)
+
+        add_team_members(team_members, task_instance)
 
         serialized_data = self.get_serializer(task_instance).data
         member_list = serialized_data.get('team_members')
 
         return response.Response(
             {
-                'message': 'Team member got successfully added',
+                'message': 'Team members got successfully added',
                 'team_members': member_list
             }, status=status.HTTP_200_OK
         )

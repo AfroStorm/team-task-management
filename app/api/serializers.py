@@ -289,7 +289,38 @@ class TaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Task
         fields = '__all__'
-        read_only_fields = ['created_at', 'owner', 'team_members']
+
+    def get_fields(self):
+        """
+        Only allows staff to modify all fields. Task owner/team_member
+        have the following read only fields.
+
+        Read only fields:
+        - id (by default)
+        - created_at (by default)
+        - owner
+        - team_members
+        - task_resource
+        """
+        fields = super().get_fields()
+        request = self.context.get('request')
+
+        if request and request.user:
+            user = request.user
+            profile = request.user.profile
+            team_members = self.instance.team_members.all()
+            owner = self.instance.owner
+
+            if user.is_staff:
+                return fields
+
+            elif profile in team_members or profile == owner:
+                read_only_fields = ['owner', 'team_members', 'task_resource']
+                for field in fields:
+                    if field in read_only_fields:
+                        fields[field].read_only = True
+
+        return fields
 
     def to_representation(self, instance):
         """
